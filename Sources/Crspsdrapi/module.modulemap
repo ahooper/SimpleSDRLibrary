@@ -1,0 +1,5 @@
+module Crspsdrapi [system] {
+  header "/usr/local/include/mirsdrapi-rsp.h"
+  link "mirsdrapi-rsp"
+  export *
+}

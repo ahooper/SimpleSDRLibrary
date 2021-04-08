@@ -1,0 +1,7 @@
+.DS_Store
+.hg
+.swiftpm
+/.build
+/Packages
+/*.xcodeproj
+xcuserdata/
