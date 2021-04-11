@@ -12,14 +12,6 @@ import struct Accelerate.vecLib.vDSP.DSPComplex
 
 class UpFIRDownTests: XCTestCase {
 
-    override func setUp() {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-
-    override func tearDown() {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
     func runTest(_ P: Int, _ h: [Float], _ Q: Int, _ x: [Float], _ y: [Float], accuracy:Float=2.0e-7) {
         
         // Test on the whole block
@@ -972,12 +964,5 @@ class UpFIRDownTests: XCTestCase {
        DSPComplex( 0.037166575400,  0.001442464438),
        DSPComplex( 0.015685676896,  0.008079773457),
        DSPComplex(-0.025642858413,  0.014281592109)]
-
-    func testPerformanceExample() {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
-    }
 
 }

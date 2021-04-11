@@ -12,19 +12,18 @@ import XCTest
 import struct Accelerate.vecLib.vDSP.DSPComplex
 @testable import SimpleSDRLibrary
 
+
 class OscillatorTests: XCTestCase {
-
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-    
+  
     func runTest(_ frequency:Float, _ Y:[DSPComplex], _ tol:Float) {
-        let osc = OscillatorComplex(signalHz:frequency, sampleHz:Int(frequency*256), level:1.0)
-       // AssertEqual(osc.outputBuffer, Y, accuracy:tol)
+        let f = frequency/(2*Float.pi)
+        let osc = OscillatorComplex(signalHz:f, sampleHz:1, level:1.0)
+        let o = Oscillator<ComplexSamples>(signalHz:f, sampleHz:1, level:1.0)
+        AssertEqual(osc.outputBuffer, o.outputBuffer.zip(), accuracy: Float.zero)
+//        for i in 0..<osc.outputBuffer.count {//Y.count {
+//            print(Y[i], osc.outputBuffer[i % osc.outputBuffer.count])
+//        }
+        AssertEqual(osc.outputBuffer, Array(Y.prefix(osc.outputBuffer.count)), accuracy:tol)
     }
 
     let nco_sincos_fsqrt1_2:[DSPComplex] = [
@@ -1059,19 +1058,18 @@ class OscillatorTests: XCTestCase {
       DSPComplex( -0.183356945000,  0.983046403137),
       DSPComplex( -0.533188200573,  0.845996656476)]
 
-    func testComplex1() {
-        let tol:Float = 0.04;
+    let tol:Float = 0.04;
+    func testComplex2() {
         runTest(0.707106781186547, nco_sincos_fsqrt1_2, tol) // 1/sqrt(2)
-        runTest(0.577350269189626, nco_sincos_fsqrt1_3, tol) // 1/sqrt(3)
-        runTest(0.447213595499958, nco_sincos_fsqrt1_5, tol) // 1/sqrt(5)
-        runTest(0.377964473009227, nco_sincos_fsqrt1_7, tol) // 1/sqrt(7)
     }
-
-    func testPerformanceExample() throws {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
+    func testComplex3() {
+        runTest(0.577350269189626, nco_sincos_fsqrt1_3, tol) // 1/sqrt(3)
+    }
+    func testComplex5() {
+        runTest(0.447213595499958, nco_sincos_fsqrt1_5, tol) // 1/sqrt(5)
+    }
+    func testComplex7() {
+        runTest(0.377964473009227, nco_sincos_fsqrt1_7, tol) // 1/sqrt(7)
     }
 
 }

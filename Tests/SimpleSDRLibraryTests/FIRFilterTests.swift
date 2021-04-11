@@ -14,14 +14,6 @@ import struct Accelerate.vecLib.vDSP.DSPComplex
 
 class FIRFilterTests: XCTestCase {
 
-    override func setUp() {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-
-    override func tearDown() {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
     fileprivate func runTest(_ h: [Float], _ x: [Float], _ y: [Float]) {
         // Test on the whole block
         let f = FIRFilter(source:SourceBox<RealSamples>.NilReal(), h)
@@ -720,11 +712,4 @@ class FIRFilterTests: XCTestCase {
        DSPComplex(-0.038653803420,  0.008885169596),
        DSPComplex(-0.048989194709,  0.030055784593)]
   
-    func testPerformanceExample() {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
-    }
-
 }

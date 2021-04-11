@@ -15,14 +15,6 @@ import struct Accelerate.vecLib.vDSP.DSPComplex
 @testable import SimpleSDRLibrary
 
 class IIRFilterTests: XCTestCase {
-
-    override func setUp() {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-
-    override func tearDown() {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
     
     fileprivate func runTest(_ b: [Float], _ a: [Float], _ x: [Float], _ y: [Float]) {
         // Test on the whole block
@@ -96,13 +88,6 @@ class IIRFilterTests: XCTestCase {
         f2.process(ComplexSamples(Array(x[half...])), &o2)
         oo.append(o2)
         AssertEqual(oo, y, accuracy:2.0e-6)
-    }
-
-    func testPerformanceExample() {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
     }
 
     func testIIRFilter_Real_h3x64() {

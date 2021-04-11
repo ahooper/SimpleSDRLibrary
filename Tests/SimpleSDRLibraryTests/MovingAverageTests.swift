@@ -11,14 +11,6 @@ import struct Accelerate.vecLib.vDSP.DSPComplex
 @testable import SimpleSDRLibrary
 
 class MovingAverageTests: XCTestCase {
-
-    override func setUp() {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-
-    override func tearDown() {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
     
     func runTest(_ D:Int, _ X:[Float], _ Y:[Float]) {
         let ma = MovingAverage<RealSamples>(D)
@@ -74,13 +66,6 @@ class MovingAverageTests: XCTestCase {
                 DSPComplex(-0.333333,1.0),
                 DSPComplex(2.0,1.0),
                 DSPComplex(4.0,1.0)])
-    }
-
-    func testPerformanceExample() {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
     }
 
 }

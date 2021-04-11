@@ -10,20 +10,29 @@ import struct Accelerate.vecLib.vDSP.DSPComplex
 //import struct Accelerate.vecLib.vDSP.DSPDoubleComplex
 //import func Accelerate.vecLib.vDSP.vDSP_dotpr
 //import struct Accelerate.vecLib.vDSP.vDSP_Length
+import func CoreFoundation.cosf
+import func CoreFoundation.sinf
 
 public protocol DSPScalar:Numeric {
     init(_ real:Float)
     static func *(lhs:Self, rhs:Float) -> Self
     static func /(lhs:Self, rhs:Float) -> Self
+    static func oscillator(_ phase:Float, _ level:Float) -> Self
+        // TODO need a better name for this function
     var magnitude: Float { get }
 }
 
 extension Float:DSPScalar {
-    
+    public static func oscillator(_ phase:Float, _ level:Float) -> Self {
+        cosf(phase) * level
+    }
 }
 
 extension DSPComplex:DSPScalar {
-    
+    public static func oscillator(_ phase:Float, _ level:Float) -> Self {
+        DSPComplex(cosf(phase) * level,
+                   sinf(phase) * level)
+    }
 }
 
 public protocol DSPSamples {
@@ -244,6 +253,10 @@ assert(real.capacity==imag.capacity)
         }
         result += "])"
         return result
+    }
+
+    public func zip()->[Element] {
+        Swift.zip(real,imag).map{Element($0.0,$0.1)}
     }
 }
 

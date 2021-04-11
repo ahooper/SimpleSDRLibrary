@@ -11,14 +11,6 @@ import XCTest
 
 class FIRKernelTests: XCTestCase {
 
-    override func setUp() {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-
-    override func tearDown() {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
     func testLowPassRectangular() {
         // Low Pass Filter Example from http://www.labbookpages.co.uk/audio/firWindowing.html
         let f = FIRKernel.sincKernel(filterLength: 21,
@@ -86,13 +78,6 @@ class FIRKernelTests: XCTestCase {
         for j in 0..<M {
             let y = X.weightedSum(at:0, FB[j])
             XCTAssertEqual(y, test[j], accuracy:5e-5)
-        }
-    }
-
-    func testPerformanceExample() {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
         }
     }
 

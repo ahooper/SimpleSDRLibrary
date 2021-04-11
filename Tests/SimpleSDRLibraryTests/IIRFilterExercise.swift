@@ -12,14 +12,6 @@ import struct Accelerate.vecLib.vDSP.DSPComplex
 
 class IIRFilterExercise: XCTestCase {
 
-    override func setUp() {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-
-    override func tearDown() {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
     func testExercise() {
         // no result comparision, just ensure no assert fails or other exceptions
         let b:[Float] = [10,11,12,13,14]
@@ -28,13 +20,6 @@ class IIRFilterExercise: XCTestCase {
         let f = IIRFilter(source:SourceBox<RealSamples>.NilReal(), b, a)
         var o=RealSamples()
         f.process(RealSamples(x), &o)
-    }
-
-    func testPerformanceExample() {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
     }
 
 }
