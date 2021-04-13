@@ -18,12 +18,16 @@ class OscillatorTests: XCTestCase {
     func runTest(_ frequency:Float, _ Y:[DSPComplex], _ tol:Float) {
         let f = frequency/(2*Float.pi)
         let osc = OscillatorComplex(signalHz:f, sampleHz:1, level:1.0)
-        let o = Oscillator<ComplexSamples>(signalHz:f, sampleHz:1, level:1.0)
-        AssertEqual(osc.outputBuffer, o.outputBuffer.zip(), accuracy: Float.zero)
 //        for i in 0..<osc.outputBuffer.count {//Y.count {
 //            print(Y[i], osc.outputBuffer[i % osc.outputBuffer.count])
 //        }
         AssertEqual(osc.outputBuffer, Array(Y.prefix(osc.outputBuffer.count)), accuracy:tol)
+        let o = Oscillator<ComplexSamples>(signalHz:f, sampleHz:1, level:1.0)
+        AssertEqual(osc.outputBuffer, o.outputBuffer.zip(), accuracy: Float.zero)
+        let n = OscillatorNew<ComplexSamples>(signalHz:Double(f), sampleHz:1, level:1.0)
+//        _ = (0..<o.outputBuffer.count).map{print(o.outputBuffer[$0]-n.outputBuffer[$0])}
+        AssertEqual(osc.outputBuffer, n.outputBuffer.zip(), accuracy: tol)
+        AssertEqual(n.outputBuffer, Array(Y.prefix(osc.outputBuffer.count)), accuracy:tol)
     }
 
     let nco_sincos_fsqrt1_2:[DSPComplex] = [
