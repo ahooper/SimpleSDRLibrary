@@ -12,10 +12,9 @@ import XCTest
 import struct Accelerate.vecLib.vDSP.DSPComplex
 @testable import SimpleSDRLibrary
 
-
 class OscillatorTests: XCTestCase {
   
-    func runTest(_ frequency:Float, _ Y:[DSPComplex], _ tol:Float) {
+    func frequencyTest(_ frequency:Float, _ Y:[DSPComplex], _ tol:Float) {
         let f = frequency/(2*Float.pi)
         let osc = OscillatorComplex(signalHz:f, sampleHz:1, level:1.0)
 //        for i in 0..<osc.outputBuffer.count {//Y.count {
@@ -25,7 +24,7 @@ class OscillatorTests: XCTestCase {
         let o = Oscillator<ComplexSamples>(signalHz:f, sampleHz:1, level:1.0)
         AssertEqual(osc.outputBuffer, o.outputBuffer.zip(), accuracy: Float.zero)
         let n = OscillatorNew<ComplexSamples>(signalHz:Double(f), sampleHz:1, level:1.0)
-//        _ = (0..<o.outputBuffer.count).map{print(o.outputBuffer[$0]-n.outputBuffer[$0])}
+//        (0..<o.outputBuffer.count).forEach{print(o.outputBuffer[$0]-n.outputBuffer[$0])}
         AssertEqual(osc.outputBuffer, n.outputBuffer.zip(), accuracy: tol)
         AssertEqual(n.outputBuffer, Array(Y.prefix(osc.outputBuffer.count)), accuracy:tol)
     }
@@ -1063,17 +1062,102 @@ class OscillatorTests: XCTestCase {
       DSPComplex( -0.533188200573,  0.845996656476)]
 
     let tol:Float = 0.04;
-    func testComplex2() {
-        runTest(0.707106781186547, nco_sincos_fsqrt1_2, tol) // 1/sqrt(2)
+    func testFrequency2() {
+        frequencyTest(0.707106781186547, nco_sincos_fsqrt1_2, tol) // 1/sqrt(2)
     }
-    func testComplex3() {
-        runTest(0.577350269189626, nco_sincos_fsqrt1_3, tol) // 1/sqrt(3)
+    func testFrequency3() {
+        frequencyTest(0.577350269189626, nco_sincos_fsqrt1_3, tol) // 1/sqrt(3)
     }
-    func testComplex5() {
-        runTest(0.447213595499958, nco_sincos_fsqrt1_5, tol) // 1/sqrt(5)
+    func testFrequency5() {
+        frequencyTest(0.447213595499958, nco_sincos_fsqrt1_5, tol) // 1/sqrt(5)
     }
-    func testComplex7() {
-        runTest(0.377964473009227, nco_sincos_fsqrt1_7, tol) // 1/sqrt(7)
+    func testFrequency7() {
+        frequencyTest(0.377964473009227, nco_sincos_fsqrt1_7, tol) // 1/sqrt(7)
+    }
+
+    func phaseTest(_ theta:Float, _ cos:Float, _ sin:Float, _ tol:Float) {
+        let osc = OscillatorNew<ComplexSamples>(signalHz:0.5, sampleHz:1, level:1.0)
+        osc.setPhase(theta)
+        AssertEqual(osc.outputBuffer[0], DSPComplex(cos,sin), accuracy: tol)
+    }
+    
+    func testPhase() {
+        let tol:Float = 0.02
+        // data from liquid-dsp-1.3.2/src/nco/tests/nco_crcf_phase_autotest.c
+        phaseTest(-6.283185307,  1.000000000,  0.000000000, tol);
+        phaseTest(-6.195739393,  0.996179042,  0.087334510, tol);
+        phaseTest(-5.951041106,  0.945345356,  0.326070787, tol);
+        phaseTest(-5.131745978,  0.407173250,  0.913350943, tol);
+        phaseTest(-4.748043551,  0.035647016,  0.999364443, tol);
+        phaseTest(-3.041191113, -0.994963998, -0.100232943, tol);
+        phaseTest(-1.947799864, -0.368136099, -0.929771914, tol);
+        phaseTest(-1.143752030,  0.414182352, -0.910193924, tol);
+        phaseTest(-1.029377689,  0.515352252, -0.856978446, tol);
+        phaseTest(-0.174356887,  0.984838307, -0.173474811, tol);
+        phaseTest(-0.114520496,  0.993449692, -0.114270338, tol);
+        phaseTest( 0.000000000,  1.000000000,  0.000000000, tol);
+        phaseTest( 1.436080000,  0.134309213,  0.990939471, tol);
+        phaseTest( 2.016119855, -0.430749878,  0.902471353, tol);
+        phaseTest( 2.996498473, -0.989492293,  0.144585621, tol);
+        phaseTest( 3.403689755, -0.965848729, -0.259106603, tol);
+        phaseTest( 3.591162483, -0.900634128, -0.434578148, tol);
+        phaseTest( 5.111428476,  0.388533479, -0.921434607, tol);
+        phaseTest( 5.727585681,  0.849584319, -0.527452828, tol);
+        phaseTest( 6.283185307,  1.000000000, -0.000000000, tol);
+
+    }
+    
+    private class TestSource<Samples:DSPSamples>:BufferedStage<NilSamples,Samples> {
+        let sampleHz:Float
+        
+        public init(sampleHz:Float, data:[Samples.Element]) {
+            self.sampleHz = sampleHz
+            super.init("TestSource")
+            data.forEach{outputBuffer.append($0)}
+        }
+        
+        override public func sampleFrequency() -> Double {
+            return Double(sampleHz)
+        }
+        
+    }
+
+    func DISABLEDtestMixerDown() {
+        let f:Float = 0.1
+        let phi:Float = .pi
+        let tol:Float = 0.05
+        let N = 1024
+        let s = TestSource<ComplexSamples>(sampleHz:1,
+                                           data: (0..<N).map{DSPComplex.exp(DSPComplex(0,Float($0)+phi))})
+        let m = Mixer(source:s, signalHz:Double(f))
+        m.setFrequency(-f)
+        m.setPhase(phi)
+        //print(s.outputBuffer)
+        var y = ComplexSamples(repeating:.nan, count:N)
+        m.process(s.outputBuffer, &y)
+        print(y)
+        (0..<N).forEach{AssertEqual(y[$0], DSPComplex(1.0,0.0), accuracy:tol)}
+    }
+
+    func testMixerUp() {
+        let freq:Float = 0
+        let phase:Float = 0.7123
+        let tol:Float = 0.01
+        let N = 4096
+        let s = TestSource<ComplexSamples>(sampleHz:1,
+                                           data: (0..<N).map{_ in DSPComplex.exp(DSPComplex(0,2*Float.pi*Float.random(in:0..<1)))})
+        let m = Mixer(source:s, signalHz:Double(2))
+        m.setPhase(phase)
+        m.setFrequency(freq)
+        //print(s.outputBuffer)
+        var y = ComplexSamples(repeating:.nan, count:N)
+        m.process(s.outputBuffer, &y)
+        print(y)
+        var phi = phase
+        (0..<N).forEach{
+            AssertEqual(y[$0], DSPComplex.exp(DSPComplex(0,phi)), accuracy:tol)
+            phi += freq
+        }
     }
 
 }

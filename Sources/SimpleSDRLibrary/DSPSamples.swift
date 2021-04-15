@@ -35,8 +35,8 @@ extension DSPComplex:DSPScalar {
     }
 }
 
-public protocol DSPSamples {
-    associatedtype Element:DSPScalar
+public protocol DSPSamples: Collection {
+    override associatedtype Element:DSPScalar
     static var zero:Element { get }
     static var nan:Element { get }
     
@@ -77,6 +77,11 @@ public struct RealSamples:DSPSamples, CustomStringConvertible, CustomDebugString
     }
     public var count:Int { get { real.count } }
     public var capacity:Int { get { real.capacity } }
+    public var startIndex:Int { get {real.startIndex} }
+    public var endIndex:Int { get {real.endIndex} }
+    public func index(after i:Int) -> Int {
+        real.index(after:i)
+    }
     public subscript(index:Int)->Element {
         get { real[index] }
         set { real[index] = newValue }
@@ -162,8 +167,13 @@ public struct ComplexSamples: DSPSamples, CustomStringConvertible/*TODO:, Custom
     } }
     public var capacity:Int { get {
         //if real.capacity != imag.capacity { print("ComplexSamples capacity", real.capacity, imag.capacity) }
-        return min(real.capacity, imag.capacity)
+        return Swift.min(real.capacity, imag.capacity)
     } }
+    public var startIndex:Int { get {real.startIndex} }
+    public var endIndex:Int { get {real.endIndex} }
+    public func index(after i:Int) -> Int {
+        real.index(after:i)
+    }
     public subscript(index:Int)->Element {
         get { DSPComplex(real[index],imag[index]) }
         set { real[index] = newValue.real; imag[index] = newValue.imag }
@@ -273,6 +283,11 @@ public struct NilSamples: DSPSamples  {
     }
     public var count:Int { get { 0 } }
     public var capacity:Int { get { 0 } }
+    public var startIndex:Int { get {0} }
+    public var endIndex:Int { get {0} }
+    public func index(after i:Int) -> Int {
+        0 // TODO not sure what this should be
+    }
     public subscript(index:Int)->Element {
         get { fatalError("NilSamples subscript is not possible") }
         set { fatalError("NilSamples subscript is not possible") }
