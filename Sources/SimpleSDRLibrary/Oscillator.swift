@@ -10,6 +10,7 @@ import func CoreFoundation.cosf
 import func CoreFoundation.sinf
 import func CoreFoundation.sqrtf
 
+@available(*,deprecated)
 public class OscillatorReal:BufferedStage<NilSamples,RealSamples> {
     // TODO how to make this generic on samples?
     let signalHz:Float
@@ -42,6 +43,7 @@ public class OscillatorReal:BufferedStage<NilSamples,RealSamples> {
     
 }
 
+@available(*,deprecated)
 public class OscillatorComplex:BufferedStage<NilSamples,ComplexSamples> {
     // TODO how to make this generic on samples?
     let signalHz:Float
@@ -75,6 +77,7 @@ public class OscillatorComplex:BufferedStage<NilSamples,ComplexSamples> {
     
 }
 
+@available(*,deprecated)
 public class Oscillator<Samples:DSPSamples>:BufferedStage<NilSamples,Samples> {
     let signalHz:Float
     let sampleHz:Int
@@ -110,8 +113,10 @@ fileprivate let TABLE_SIZE = 1024
 
 private struct OscillatorLookup<Element:DSPScalar>:IteratorProtocol {
     let table:[Element]
-    var phase, step: Float // fraction of a cycle
-    
+    var phase, step: Float // 0..<TABLE_SIZE corresponds to one cycle
+    let RADIANS_TO_INDEX: Float = Float(TABLE_SIZE) / (2 * Float.pi)
+    let INDEX_TO_RADIANS: Float = (2 * Float.pi) / Float(TABLE_SIZE)
+
     public init(signalHz:Double, sampleHz:Double, level:Float=1.0) {
         precondition(sampleHz >= signalHz * 2, "sampleHz must be >= 2 * signalHz")
         table = (0..<TABLE_SIZE).map{Element.oscillator(2*Float.pi*Float($0)/Float(TABLE_SIZE), level)}
@@ -120,8 +125,9 @@ private struct OscillatorLookup<Element:DSPScalar>:IteratorProtocol {
     }
 
     mutating func next()->Element? {
-        // never returns nil, but Optional is required for protocol conformance
-        while phase < 0 {
+        // this infinite sequence never returns nil, but Optional is
+        // required for protocol conformance
+        while phase < -0.5 {
             phase += Float(TABLE_SIZE)
         }
         while (phase+0.5) >= Float(TABLE_SIZE) {
@@ -133,19 +139,28 @@ private struct OscillatorLookup<Element:DSPScalar>:IteratorProtocol {
     }
     
     mutating func setFrequency(_ f:Float) {
-        step = Float(TABLE_SIZE) * f
+        step = RADIANS_TO_INDEX * f
     }
     
     mutating func setPhase(_ p:Float) {
-        phase = Float(TABLE_SIZE) * p
+        phase = RADIANS_TO_INDEX * p
     }
     
     mutating func adjustFrequency(_ d:Float) {
-        step += Float(TABLE_SIZE) * d
+        step += RADIANS_TO_INDEX * d
     }
     
     mutating func adjustPhase(_ d:Float) {
-        phase += Float(TABLE_SIZE) * d
+        phase += RADIANS_TO_INDEX * d
+    }
+    
+    func getPhase()->Float {
+        return INDEX_TO_RADIANS * phase
+    }
+    
+    func getFrequency()->Float {
+        let f = INDEX_TO_RADIANS * step
+        return (f > Float.pi) ? (f - 2*Float.pi) : f
     }
 
 }
@@ -153,57 +168,56 @@ private struct OscillatorLookup<Element:DSPScalar>:IteratorProtocol {
 public class OscillatorNew<Samples:DSPSamples>:BufferedStage<NilSamples,Samples> {
     let signalHz, sampleHz:Double
     var level:Float
-    private var osc:OscillatorLookup<Samples.Element>
+    private var iter:OscillatorLookup<Samples.Element>
 
     public init(signalHz:Double, sampleHz:Double, level:Float=1.0) {
         precondition(sampleHz >= signalHz * 2, "sampleHz must be >= 2 * signalHz")
         self.signalHz = signalHz
         self.sampleHz = sampleHz
         self.level = level
-        osc = OscillatorLookup<Samples.Element>(signalHz: signalHz, sampleHz: sampleHz)
+        iter = OscillatorLookup<Samples.Element>(signalHz: signalHz, sampleHz: sampleHz)
         super.init("OscillatorNew")
-        generate(&outputBuffer)
-        generate(&produceBuffer)
     }
 
-    private func generate(_ output:inout Samples) {
-        // initialize repeating samples
-        // slight discrepancy if sampleHz is not evenly divisible by signalHz
-        let numSamples = Int(sampleHz / signalHz * 10 + 0.5)
-        output.removeAll(keepingCapacity:true)
+    public func generate(_ numSamples:UInt) {
+        outputBuffer.removeAll(keepingCapacity:true)
         for _ in 0..<numSamples {
-            let n:Samples.Element = osc.next()!
-            output.append(n)
+            let n:Samples.Element = iter.next()!
+            outputBuffer.append(n)
         }
+        produce()
+    }
+    
+    public func generate() {
+        generate(UInt(Double(sampleHz) / signalHz * 10 + 0.5))
     }
     
     override public func sampleFrequency() -> Double {
         return Double(sampleHz)
     }
     
-    func setFrequency(_ d:Float) {
-        osc.setFrequency(d / (2*Float.pi))
-        generate(&outputBuffer)
-        generate(&produceBuffer)
+    public func setFrequency(_ d:Float) {
+        iter.setFrequency(d) //TODO * (2 * Float.pi) / sampleHz
     }
     
-    func setPhase(_ d:Float) {
-        osc.setPhase(d / (2*Float.pi))
-        generate(&outputBuffer)
-        generate(&produceBuffer)
-    }
-
-    
-    func adjustFrequency(_ d:Float) {
-        osc.adjustFrequency(d / (2*Float.pi))
-        generate(&outputBuffer)
-        generate(&produceBuffer)
+    public func setPhase(_ d:Float) {
+        iter.setPhase(d)
     }
     
-    func adjustPhase(_ d:Float) {
-        osc.adjustPhase(d / (2*Float.pi))
-        generate(&outputBuffer)
-        generate(&produceBuffer)
+    public func adjustFrequency(_ d:Float) {
+        iter.adjustFrequency(d) //TODO * (2 * Float.pi) / sampleHz
+    }
+    
+    public func adjustPhase(_ d:Float) {
+        iter.adjustPhase(d)
+    }
+    
+    public func getPhase()->Float {
+        iter.getPhase()
+    }
+    
+    public func getFrequency()->Float {
+        iter.getFrequency() //TODO / (2 * Float.pi) * sampleHz
     }
 
 }
@@ -226,56 +240,67 @@ public class Mixer:BufferedStage<ComplexSamples,ComplexSamples> {
         for ev in x { out.append(ev * osc.next()! )}
     }
     
-    func setFrequency(_ d:Float) {
-        osc.setFrequency(d / (2*Float.pi))
+    public func setFrequency(_ f:Float) {
+        osc.setFrequency(f) //TODO * (2 * Float.pi) / sampleHz
     }
     
-    func setPhase(_ d:Float) {
-        osc.setPhase(d / (2*Float.pi))
+    public func setPhase(_ p:Float) {
+        osc.setPhase(p)
     }
+    
+    public func adjustFrequency(_ d:Float) {
+        osc.adjustFrequency(d) //TODO * (2 * Float.pi) / sampleHz
 
-    
-    func adjustFrequency(_ d:Float) {
-        osc.adjustFrequency(d / (2*Float.pi))
-
     }
     
-    func adjustPhase(_ d:Float) {
-        osc.adjustPhase(d / (2*Float.pi))
+    public func adjustPhase(_ d:Float) {
+        osc.adjustPhase(d)
     }
 
 }
 
 public class PLL:BufferedStage<ComplexSamples,ComplexSamples> {
+    public typealias ErrorEstimator = (Input.Element, Output.Element)->Float
     public static let DEFAULT_BANDWIDTH = Float(0.1)
-    private var osc:OscillatorLookup<ComplexSamples.Element>
+    private var osc:OscillatorLookup<Output.Element>
+    let errorEstimator:ErrorEstimator
     var alpha, beta: Float // loop adjustment bandwidth
 
     public init<S:SourceProtocol>(source:S?,
                                   signalHz:Double,
+                                  errorEstimator:@escaping ErrorEstimator,
                                   loopBandwidth:Float=PLL.DEFAULT_BANDWIDTH)
                     where S.Output == Input {
         let sampleHz = source!.sampleFrequency()
         osc = OscillatorLookup<ComplexSamples.Element>(signalHz: signalHz, sampleHz: sampleHz)
+        self.errorEstimator = errorEstimator
         alpha = loopBandwidth
         beta = sqrtf(alpha)
         super.init("PLL", source:source)
     }
     
-    func adjustFrequency(_ d:Float) {
-        osc.adjustFrequency(d / (2*Float.pi))
+    public func adjustFrequency(_ d:Float) {
+        osc.adjustFrequency(d)
     }
     
-    func adjustPhase(_ d:Float) {
-        osc.adjustPhase(d / (2*Float.pi))
+    public func adjustPhase(_ d:Float) {
+        osc.adjustPhase(d)
     }
 
-    func adjust(_ d:Float) {
+    public func adjust(_ d:Float) {
         adjustFrequency(d * alpha)
         adjustPhase(d * beta)
     }
     
-    func setBandwidth(_ bw:Float) {
+    public func getPhase()->Float {
+        osc.getPhase()
+    }
+    
+    public func getFrequency()->Float {
+        osc.getFrequency() //TODO / (2 * Float.pi) * sampleHz
+    }
+
+    public func setBandwidth(_ bw:Float) {
         alpha = bw
         beta = sqrtf(alpha)
     }
@@ -285,7 +310,13 @@ public class PLL:BufferedStage<ComplexSamples,ComplexSamples> {
         out.resize(inCount) // output same size as input
         if inCount == 0 { return }
         out.removeAll()
-        for ev in x { out.append(osc.next()!); /*TODO adjust(ev)*/ }
+        for v in x {
+            let o = osc.next()!
+            out.append(o)
+            let e: Float = errorEstimator(v,o)
+            //print("PLL",v,o,e)
+            adjust(e)
+        }
     }
     
 }

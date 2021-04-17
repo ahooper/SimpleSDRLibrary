@@ -250,7 +250,7 @@ open class BufferedStage<Input,Output>: Sink<Input>, SourceProtocol
     }
 
     func process(_ x:Input, _ out:inout Output) {
-        fatalError("BufferedStage process() method must be overridden.")
+        fatalError("BufferedStage process(:,:) method must be overridden.")
     }
     
     public func hasFinished() -> Bool {

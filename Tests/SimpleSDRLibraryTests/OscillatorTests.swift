@@ -16,17 +16,19 @@ class OscillatorTests: XCTestCase {
   
     func frequencyTest(_ frequency:Float, _ Y:[DSPComplex], _ tol:Float) {
         let f = frequency/(2*Float.pi)
-        let osc = OscillatorComplex(signalHz:f, sampleHz:1, level:1.0)
+        
+        let osc = /*deprecated*/OscillatorComplex(signalHz:f, sampleHz:1, level:1.0)
 //        for i in 0..<osc.outputBuffer.count {//Y.count {
 //            print(Y[i], osc.outputBuffer[i % osc.outputBuffer.count])
 //        }
         AssertEqual(osc.outputBuffer, Array(Y.prefix(osc.outputBuffer.count)), accuracy:tol)
-        let o = Oscillator<ComplexSamples>(signalHz:f, sampleHz:1, level:1.0)
+        
+        let o = /*deprecated*/Oscillator<ComplexSamples>(signalHz:f, sampleHz:1, level:1.0)
         AssertEqual(osc.outputBuffer, o.outputBuffer.zip(), accuracy: Float.zero)
+        
         let n = OscillatorNew<ComplexSamples>(signalHz:Double(f), sampleHz:1, level:1.0)
-//        (0..<o.outputBuffer.count).forEach{print(o.outputBuffer[$0]-n.outputBuffer[$0])}
-        AssertEqual(osc.outputBuffer, n.outputBuffer.zip(), accuracy: tol)
-        AssertEqual(n.outputBuffer, Array(Y.prefix(osc.outputBuffer.count)), accuracy:tol)
+        n.generate(UInt(Y.count))
+        AssertEqual(n.produceBuffer, Y, accuracy:tol)
     }
 
     let nco_sincos_fsqrt1_2:[DSPComplex] = [
@@ -1078,7 +1080,8 @@ class OscillatorTests: XCTestCase {
     func phaseTest(_ theta:Float, _ cos:Float, _ sin:Float, _ tol:Float) {
         let osc = OscillatorNew<ComplexSamples>(signalHz:0.5, sampleHz:1, level:1.0)
         osc.setPhase(theta)
-        AssertEqual(osc.outputBuffer[0], DSPComplex(cos,sin), accuracy: tol)
+        osc.generate(1)
+        AssertEqual(osc.produceBuffer[0], DSPComplex(cos,sin), accuracy: tol)
     }
     
     func testPhase() {
@@ -1122,42 +1125,102 @@ class OscillatorTests: XCTestCase {
         
     }
 
-    func DISABLEDtestMixerDown() {
+    func testMixerDown() {
+        // based on liquid-dsp-1.3.2/src/nco/tests/nco_crcf_phase_autotest.c autotest_nco_block_mixing
         let f:Float = 0.1
         let phi:Float = .pi
         let tol:Float = 0.05
         let N = 1024
         let s = TestSource<ComplexSamples>(sampleHz:1,
-                                           data: (0..<N).map{DSPComplex.exp(DSPComplex(0,Float($0)+phi))})
-        let m = Mixer(source:s, signalHz:Double(f))
+                                           data: (0..<N).map{DSPComplex.exp(DSPComplex(0, f*Float($0)+phi))})
+        let m = Mixer(source:s, signalHz:0)
         m.setFrequency(-f)
         m.setPhase(phi)
-        //print(s.outputBuffer)
         var y = ComplexSamples(repeating:.nan, count:N)
         m.process(s.outputBuffer, &y)
-        print(y)
         (0..<N).forEach{AssertEqual(y[$0], DSPComplex(1.0,0.0), accuracy:tol)}
     }
 
     func testMixerUp() {
+        // based on liquid-dsp-1.3.2/src/nco/tests/nco_crcf_mix_autotest.c autotest_nco_crcf_mix_block_up
         let freq:Float = 0
         let phase:Float = 0.7123
         let tol:Float = 0.01
         let N = 4096
         let s = TestSource<ComplexSamples>(sampleHz:1,
                                            data: (0..<N).map{_ in DSPComplex.exp(DSPComplex(0,2*Float.pi*Float.random(in:0..<1)))})
-        let m = Mixer(source:s, signalHz:Double(2))
+        let m = Mixer(source:s, signalHz:0)
         m.setPhase(phase)
         m.setFrequency(freq)
-        //print(s.outputBuffer)
         var y = ComplexSamples(repeating:.nan, count:N)
         m.process(s.outputBuffer, &y)
-        print(y)
         var phi = phase
-        (0..<N).forEach{
-            AssertEqual(y[$0], DSPComplex.exp(DSPComplex(0,phi)), accuracy:tol)
+        for i in 0..<N {
+            let v = s.outputBuffer[i] * DSPComplex.exp(DSPComplex(0,phi))
+            //print(i,v,y[i])
+            AssertEqual(y[i], v, accuracy:tol)
             phi += freq
         }
     }
+    
+    func runPLLTest(_ phaseOffset:Float, _ freqOffset:Float, _ pllBandwidth:Float, _ N:UInt, _ tol:Float) {
+        let tx = OscillatorNew<ComplexSamples>(signalHz:0, sampleHz:1, level:1.0)
+        let rx = PLL(source:tx, signalHz:0, errorEstimator:{ x,o in
+            (x * o.conjugate()).argument()
+        })
+        tx.setPhase(phaseOffset)
+        tx.setFrequency(freqOffset)
+        rx.setBandwidth(pllBandwidth)
+        
+        tx.generate(N)
+        
+        //print(zip(Array(tx.produceBuffer.suffix(10)),
+        //          Array(rx.produceBuffer.suffix(10))).map{($0.0-$0.1).magnitude})
+        var phaseError = tx.getPhase() - rx.getPhase()
+        //print("samples", tx.outputBuffer.count, "txphase", tx.getPhase(), "rxphase", rx.getPhase())
+        while phaseError >=  2*Float.pi { phaseError -= 2*Float.pi }
+        while phaseError <= -2*Float.pi { phaseError += 2*Float.pi }
+        XCTAssertEqual(phaseError, 0, accuracy:tol)
+        
+        var frequencyError = tx.getFrequency() - rx.getFrequency()
+        while frequencyError >=  2*Float.pi { frequencyError -= 2*Float.pi }
+        while frequencyError <= -2*Float.pi { frequencyError += 2*Float.pi }
+        XCTAssertEqual(frequencyError, 0, accuracy:tol)
+        //print("runPLLTest", phaseOffset, freqOffset, "phaseError", phaseError, "frequencyError", frequencyError)
+    }
 
+    func testPLLphase() {
+        let bw:Float = 0.1
+        let N:UInt = 256
+        let tol:Float = 1e-2
+
+        // test various phase offsets
+        runPLLTest(-Float.pi/1.1,  0.0, bw, N, tol)
+        runPLLTest(-Float.pi/2.0,  0.0, bw, N, tol)
+        runPLLTest(-Float.pi/4.0,  0.0, bw, N, tol)
+        runPLLTest(-Float.pi/8.0,  0.0, bw, N, tol)
+        runPLLTest( Float.pi/8.0,  0.0, bw, N, tol)
+        runPLLTest( Float.pi/4.0,  0.0, bw, N, tol)
+        runPLLTest( Float.pi/2.0,  0.0, bw, N, tol)
+        runPLLTest( Float.pi/1.1,  0.0, bw, N, tol)
+
+    }
+
+    func testPLLfreq() {
+        let bw:Float = 0.1
+        let N:UInt = 256
+        let tol:Float = 1e-2
+
+        // test various frequency offsets
+        runPLLTest( 0.0,      -1.6, bw, N, tol)
+        runPLLTest( 0.0,      -0.8, bw, N, tol)
+        runPLLTest( 0.0,      -0.4, bw, N, tol)
+        runPLLTest( 0.0,      -0.2, bw, N, tol)
+        runPLLTest( 0.0,       0.2, bw, N, tol)
+        runPLLTest( 0.0,       0.4, bw, N, tol)
+        runPLLTest( 0.0,       0.8, bw, N, tol)
+        runPLLTest( 0.0,       1.6, bw, N, tol)
+
+    }
+    
 }
