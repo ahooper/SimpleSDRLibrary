@@ -111,7 +111,7 @@ public class Oscillator<Samples:DSPSamples>:BufferedStage<NilSamples,Samples> {
 
 fileprivate let TABLE_SIZE = 1024
 
-private struct OscillatorLookup<Element:DSPScalar>:IteratorProtocol {
+struct OscillatorLookup<Element:DSPScalar>:IteratorProtocol {
     let table:[Element]
     var phase, step: Float // 0..<TABLE_SIZE corresponds to one cycle
     let RADIANS_TO_INDEX: Float = Float(TABLE_SIZE) / (2 * Float.pi)
@@ -168,21 +168,21 @@ private struct OscillatorLookup<Element:DSPScalar>:IteratorProtocol {
 public class OscillatorNew<Samples:DSPSamples>:BufferedStage<NilSamples,Samples> {
     let signalHz, sampleHz:Double
     var level:Float
-    private var iter:OscillatorLookup<Samples.Element>
+    private var osc:OscillatorLookup<Samples.Element>
 
     public init(signalHz:Double, sampleHz:Double, level:Float=1.0) {
         precondition(sampleHz >= signalHz * 2, "sampleHz must be >= 2 * signalHz")
         self.signalHz = signalHz
         self.sampleHz = sampleHz
         self.level = level
-        iter = OscillatorLookup<Samples.Element>(signalHz: signalHz, sampleHz: sampleHz)
+        osc = OscillatorLookup<Samples.Element>(signalHz: signalHz, sampleHz: sampleHz)
         super.init("OscillatorNew")
     }
 
     public func generate(_ numSamples:UInt) {
         outputBuffer.removeAll(keepingCapacity:true)
         for _ in 0..<numSamples {
-            let n:Samples.Element = iter.next()!
+            let n:Samples.Element = osc.next()!
             outputBuffer.append(n)
         }
         produce()
@@ -197,64 +197,27 @@ public class OscillatorNew<Samples:DSPSamples>:BufferedStage<NilSamples,Samples>
     }
     
     public func setFrequency(_ d:Float) {
-        iter.setFrequency(d) //TODO * (2 * Float.pi) / sampleHz
+        osc.setFrequency(d) //TODO / sampleHz
     }
     
     public func setPhase(_ d:Float) {
-        iter.setPhase(d)
+        osc.setPhase(d)
     }
     
     public func adjustFrequency(_ d:Float) {
-        iter.adjustFrequency(d) //TODO * (2 * Float.pi) / sampleHz
-    }
-    
-    public func adjustPhase(_ d:Float) {
-        iter.adjustPhase(d)
-    }
-    
-    public func getPhase()->Float {
-        iter.getPhase()
-    }
-    
-    public func getFrequency()->Float {
-        iter.getFrequency() //TODO / (2 * Float.pi) * sampleHz
-    }
-
-}
-
-public class Mixer:BufferedStage<ComplexSamples,ComplexSamples> {
-    private var osc:OscillatorLookup<ComplexSamples.Element>
-
-    public init<S:SourceProtocol>(source:S?,
-                                  signalHz:Double) where S.Output == Input {
-        let sampleHz = source!.sampleFrequency()
-        osc = OscillatorLookup<ComplexSamples.Element>(signalHz: signalHz, sampleHz: sampleHz)
-        super.init("Mixer", source:source)
-    }
-    
-    override func process(_ x:Input, _ out:inout Output) {
-        let inCount = x.count
-        out.resize(inCount) // output same size as input
-        if inCount == 0 { return }
-        out.removeAll()
-        for ev in x { out.append(ev * osc.next()! )}
-    }
-    
-    public func setFrequency(_ f:Float) {
-        osc.setFrequency(f) //TODO * (2 * Float.pi) / sampleHz
-    }
-    
-    public func setPhase(_ p:Float) {
-        osc.setPhase(p)
-    }
-    
-    public func adjustFrequency(_ d:Float) {
-        osc.adjustFrequency(d) //TODO * (2 * Float.pi) / sampleHz
-
+        osc.adjustFrequency(d) //TODO / sampleHz
     }
     
     public func adjustPhase(_ d:Float) {
         osc.adjustPhase(d)
+    }
+    
+    public func getPhase()->Float {
+        osc.getPhase()
+    }
+    
+    public func getFrequency()->Float {
+        osc.getFrequency() //TODO * sampleHz
     }
 
 }
@@ -262,13 +225,13 @@ public class Mixer:BufferedStage<ComplexSamples,ComplexSamples> {
 public class PLL:BufferedStage<ComplexSamples,ComplexSamples> {
     public typealias ErrorEstimator = (Input.Element, Output.Element)->Float
     public static let DEFAULT_BANDWIDTH = Float(0.1)
-    private var osc:OscillatorLookup<Output.Element>
-    let errorEstimator:ErrorEstimator
+    var osc:OscillatorLookup<Output.Element>
+    let errorEstimator:ErrorEstimator?
     var alpha, beta: Float // loop adjustment bandwidth
 
     public init<S:SourceProtocol>(source:S?,
                                   signalHz:Double,
-                                  errorEstimator:@escaping ErrorEstimator,
+                                  errorEstimator: ErrorEstimator?,
                                   loopBandwidth:Float=PLL.DEFAULT_BANDWIDTH)
                     where S.Output == Input {
         let sampleHz = source!.sampleFrequency()
@@ -279,6 +242,14 @@ public class PLL:BufferedStage<ComplexSamples,ComplexSamples> {
         super.init("PLL", source:source)
     }
     
+    public func setFrequency(_ d:Float) {
+        osc.setFrequency(d) //TODO / sampleHz
+    }
+    
+    public func setPhase(_ d:Float) {
+        osc.setPhase(d)
+    }
+
     public func adjustFrequency(_ d:Float) {
         osc.adjustFrequency(d)
     }
@@ -297,7 +268,7 @@ public class PLL:BufferedStage<ComplexSamples,ComplexSamples> {
     }
     
     public func getFrequency()->Float {
-        osc.getFrequency() //TODO / (2 * Float.pi) * sampleHz
+        osc.getFrequency() //TODO * sampleHz
     }
 
     public func setBandwidth(_ bw:Float) {
@@ -313,10 +284,40 @@ public class PLL:BufferedStage<ComplexSamples,ComplexSamples> {
         for v in x {
             let o = osc.next()!
             out.append(o)
-            let e: Float = errorEstimator(v,o)
-            //print("PLL",v,o,e)
-            adjust(e)
+            if let errorEstimator = errorEstimator {
+                let e: Float = errorEstimator(v,o)
+                //print("PLL",v,o,e)
+                adjust(e)
+            }
         }
     }
     
+}
+
+public class Mixer:PLL {
+
+    public override init<S:SourceProtocol>(source:S?,
+                                           signalHz:Double,
+                                           errorEstimator: ErrorEstimator?=nil,
+                                           loopBandwidth:Float=PLL.DEFAULT_BANDWIDTH)
+                    where S.Output == Input {
+        super.init(source:source, signalHz:signalHz, errorEstimator:errorEstimator, loopBandwidth:loopBandwidth)
+    }
+    
+    override func process(_ x:Input, _ out:inout Output) {
+        let inCount = x.count
+        out.resize(inCount) // output same size as input
+        if inCount == 0 { return }
+        out.removeAll()
+        for v in x {
+            let o = osc.next()!
+            out.append(v*o)
+            if let errorEstimator = errorEstimator {
+                let e: Float = errorEstimator(v,o)
+                //print("Mixer",v,o,e)
+                adjust(e)
+            }
+        }
+    }
+
 }

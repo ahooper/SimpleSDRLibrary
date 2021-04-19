@@ -1145,19 +1145,18 @@ class OscillatorTests: XCTestCase {
         // based on liquid-dsp-1.3.2/src/nco/tests/nco_crcf_mix_autotest.c autotest_nco_crcf_mix_block_up
         let freq:Float = 0
         let phase:Float = 0.7123
-        let tol:Float = 0.01
+        let tol:Float = 1e-2
         let N = 4096
         let s = TestSource<ComplexSamples>(sampleHz:1,
-                                           data: (0..<N).map{_ in DSPComplex.exp(DSPComplex(0,2*Float.pi*Float.random(in:0..<1)))})
+                                           data: (0..<N).map{_ in DSPComplex.exp(DSPComplex(0,2*Float.pi*Float.random(in:0...1)))})
         let m = Mixer(source:s, signalHz:0)
         m.setPhase(phase)
         m.setFrequency(freq)
-        var y = ComplexSamples(repeating:.nan, count:N)
+        var y = ComplexSamples()
         m.process(s.outputBuffer, &y)
         var phi = phase
         for i in 0..<N {
             let v = s.outputBuffer[i] * DSPComplex.exp(DSPComplex(0,phi))
-            //print(i,v,y[i])
             AssertEqual(y[i], v, accuracy:tol)
             phi += freq
         }
