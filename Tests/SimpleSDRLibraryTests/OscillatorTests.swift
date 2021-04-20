@@ -29,6 +29,11 @@ class OscillatorTests: XCTestCase {
         let n = OscillatorNew<ComplexSamples>(signalHz:Double(f), sampleHz:1, level:1.0)
         n.generate(UInt(Y.count))
         AssertEqual(n.produceBuffer, Y, accuracy:tol)
+        
+        let r = OscillatorNew<RealSamples>(signalHz:Double(f), sampleHz:1, level:1.0)
+        r.generate(UInt(Y.count))
+        AssertEqual(r.produceBuffer, Y.map{$0.real}, accuracy:tol)
+        print(frequency, r.produceBuffer)
     }
 
     let nco_sincos_fsqrt1_2:[DSPComplex] = [
