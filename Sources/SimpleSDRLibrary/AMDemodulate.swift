@@ -6,11 +6,11 @@
 //
 
 public class AMDemodulate:BufferedStage<ComplexSamples,RealSamples> {
-    let modulationIndex:Float
+    let factor:Float
     
     public init<S:SourceProtocol>(source:S?,
-                                  modulationIndex:Float) where S.Output == Input {
-        self.modulationIndex = modulationIndex
+                                  factor:Float=1) where S.Output == Input {
+        self.factor = factor
         super.init("AMDemodulate", source:source)
     }
     
@@ -20,14 +20,125 @@ public class AMDemodulate:BufferedStage<ComplexSamples,RealSamples> {
         if inCount == 0 { return }
         for i in 0..<inCount {
             // envelope
-            out[i] = x[i].modulus() / modulationIndex
+            out[i] = x[i].modulus() / factor
             //print(String(format:"%d %.3f", i, out[i]))
         }
     }
 }
-/*
-public class AMDemodulateDSBPLL:BufferedStage<ComplexSamples,RealSamples> {
+
+public class AMSyncDemodulate:BufferedStage<ComplexSamples,RealSamples> {
+    let factor:Float
+    let osc:PLL
+
+    public init<S:SourceProtocol>(source:S?,
+                                  factor:Float=1) where S.Output == Input {
+        self.factor = factor
+        osc = PLL(source: source, signalHz: 0, errorEstimator: { x,o in
+            (x * o.conjugate()).argument()
+        })
+        super.init("AMSyncDemodulate", source:source)
+    }
+    
+    override func process(_ x:ComplexSamples, _ out:inout RealSamples) {
+        let inCount = x.count
+        out.resize(inCount) // output same size as input
+        if inCount == 0 { return }
+        assert(osc.outputBuffer.count == inCount)
+        for i in 0..<inCount {
+            out[i] = (x[i] * osc.outputBuffer[i].conjugate()).magnitude / factor
+        }
+    }
+}
+
+public class AMCostasDemodulate:BufferedStage<ComplexSamples,RealSamples> {
+    let factor:Float
+    let osc:PLL
+
+    public init<S:SourceProtocol>(source:S?,
+                                  factor:Float=1) where S.Output == Input {
+        self.factor = factor
+        osc = PLL(source: source, signalHz: 0, errorEstimator: { x,o in
+            let v = x * o.conjugate()
+            return v.imag * (v.real > 0 ? 1 : -1)
+        })
+        super.init("AMCostasDemodulate", source:source)
+    }
+    
+    override func process(_ x:ComplexSamples, _ out:inout RealSamples) {
+        let inCount = x.count
+        out.resize(inCount) // output same size as input
+        if inCount == 0 { return }
+        assert(osc.outputBuffer.count == inCount)
+        for i in 0..<inCount {
+            out[i] = (x[i] * osc.outputBuffer[i].conjugate()).real / factor
+        }
+    }
+}
+
+@available(*,deprecated)
+public class LiquidAMSyncDemodulate:BufferedStage<ComplexSamples,RealSamples> {
     let modulationIndex:Float
+    let lowpass:FIRFilter<ComplexSamples>
+    let delay:Delay<ComplexSamples>
+    let pll:PLL
+    //let dcblock:FIRFilter<RealSamples>
+
+    public init<S:SourceProtocol>(source:S?,
+                                  modulationIndex:Float) where S.Output == Input {
+        self.modulationIndex = modulationIndex
+        let m = 25
+        let lowpassKernel = FIRKernel.kaiserLowPass(filterLength: 2*m+1,
+                                                    normalizedTransitionFrequency: 0.01,
+                                                    stopBandAttenuation: 40)
+        self.lowpass = FIRFilter(source: source, lowpassKernel)
+        self.delay = Delay(source: source, lowpass.Pminus1/2)
+        self.pll = PLL(source:lowpass, signalHz:0, errorEstimator: { x,o in
+            (x * o.conjugate()).argument()
+        })
+        self.pll.setBandwidth(0.001)
+        x0 = ComplexSamples()
+        x1 = ComplexSamples()
+        v0 = ComplexSamples()
+        v1 = ComplexSamples()
+        dm = RealSamples()
+        super.init("AMSyncDemodulate", source:source)
+    }
+    
+    var x0, x1, v0, v1:ComplexSamples
+    var dm:RealSamples
+    
+    override func process(_ x: ComplexSamples, _ out: inout RealSamples) {
+        let inCount = x.count
+        out.resize(inCount) // output same size as input
+        if inCount == 0 { return }
+        lowpass.process(x, &x0)
+        delay.process(x, &x1)
+        v0.resize(inCount)
+        v1.resize(inCount)
+        dm.resize(inCount)
+        for i in 0..<inCount {
+            let o = ComplexSamples.Element(0,0) - pll.osc.next()!
+            v0[i] = x0[i] * o
+            v1[i] = x1[i] * o
+            let phaseError = v0[i].argument()
+            pll.adjust(phaseError)
+            dm[i] = v1[i].real / modulationIndex
+        }
+        //dcblock.process(dm, &out)
+
+    }
+}
+/*
+ https://www.fritz.dellsperger.net/downloads/V7a_2.1-Amplitudemodulation_en.pdf
+ http://play.fallows.ca/wp/radio/shortwave-radio/implement-synch-detection-done/
+ https://www.montana.edu/aolson/eele445/lecture_notes/EELE44514_L28-29.pdf
+ https://en.wikipedia.org/wiki/Product_detector
+ https://inst.eecs.berkeley.edu/~ee120/fa07/Handouts/AnalogModNotes.pdf
+ http://www2.ensc.sfu.ca/people/faculty/ho/ENSC327/Pre_04_DSB.pdf
+ liquid-dsp-1.3.2/src/modem/src/ampmodem.c
+ 
+public class AMSyncDemodulate:BufferedStage<ComplexSamples,RealSamples> {
+    let factor:Float
     let pll:PLL
     let dcblock:FIRFilter<RealSamples>
     let lowpass:FIRFilter<ComplexSamples>

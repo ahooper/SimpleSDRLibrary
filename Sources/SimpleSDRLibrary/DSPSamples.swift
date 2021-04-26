@@ -185,20 +185,20 @@ public struct ComplexSamples: DSPSamples, CustomStringConvertible/*TODO:, Custom
     public mutating func append(rangeOf X:Self, _ range:Range<Int>) {
         real.append(contentsOf: X.real[range])
         imag.append(contentsOf: X.imag[range])
-assert(real.capacity==imag.capacity) //TODO: seeing inconsistent real&imag capacity increases
+//assert(real.capacity==imag.capacity) //TODO: seeing inconsistent real&imag capacity increases
     }
     public mutating func append(_ X: Self) {
         append(rangeOf:X, 0..<X.count)
     }
     public mutating func append<S:Sequence>(contentsOf newElements:S) where S.Element == Element {
         //print("ComplexSamples append contentsOf",real.capacity,real.count,newElements.underestimatedCount)
-assert(real.capacity==imag.capacity)
+//assert(real.capacity==imag.capacity)
         let cap = capacity, c = count+newElements.underestimatedCount
         if c > cap { reserveCapacity(c) }
-assert(real.capacity==imag.capacity)
+//assert(real.capacity==imag.capacity)
         real.append(contentsOf:newElements.map{$0.real})
         imag.append(contentsOf:newElements.map{$0.imag})
-assert(real.capacity==imag.capacity)
+//assert(real.capacity==imag.capacity)
         if cap > capacity { print("ComplexSamples append contentsOf",real.count,cap,real.capacity,newElements.underestimatedCount) }
     }
     public mutating func append<S:Sequence>(real r:S, imag i:S) where S.Element == Element.Element {
@@ -222,10 +222,10 @@ assert(real.capacity==imag.capacity)
         imag.removeAll(keepingCapacity:keepingCapacity)
      }
     public mutating func reserveCapacity(_ minimumCapacity:Int) {
-assert(real.capacity==imag.capacity)
+//assert(real.capacity==imag.capacity)
         real.reserveCapacity(minimumCapacity)
         imag.reserveCapacity(minimumCapacity)
-assert(real.capacity==imag.capacity)
+//assert(real.capacity==imag.capacity)
     }
     public mutating func resize(_ newCount:Int) {
         if count > newCount {

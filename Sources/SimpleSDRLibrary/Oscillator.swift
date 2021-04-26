@@ -179,17 +179,18 @@ public class OscillatorNew<Samples:DSPSamples>:BufferedStage<NilSamples,Samples>
         super.init("OscillatorNew")
     }
 
-    public func generate(_ numSamples:UInt) {
-        outputBuffer.removeAll(keepingCapacity:true)
+    public func generate(_ numSamples:Int) {
+        assert(outputBuffer.isEmpty)
+        outputBuffer.reserveCapacity(numSamples)
         for _ in 0..<numSamples {
             let n:Samples.Element = osc.next()!
             outputBuffer.append(n)
         }
-        produce()
+        produce(clear:true)
     }
     
     public func generate() {
-        generate(UInt(Double(sampleHz) / signalHz * 10 + 0.5))
+        generate(Int(Double(sampleHz) / signalHz * 10 + 0.5))
     }
     
     override public func sampleFrequency() -> Double {

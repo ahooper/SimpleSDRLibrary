@@ -306,7 +306,34 @@ public enum FIRKernel {
                           windowFunction:kaiser(beta:beta),
                           gain:gain)
     }
-    
+
+    public static func kaiserLowPass(normalizedTransitionFrequency: Float,
+                              ripple:Float,
+                              width:Float,
+                              gain:Float=1.0)
+                    ->[Float] {
+        let (filterLength,beta) = kaiser_parameters(ripple: ripple, width: width)
+        return sincKernel(filterLength:filterLength,
+                          normalizedTransitionFrequency:normalizedTransitionFrequency,
+                          highNotLowPass:false,
+                          windowFunction:kaiser(beta:beta),
+                          gain:gain)
+    }
+
+    // parameters used in liquid_firdes_kaiser
+    public static func kaiserLowPass(filterLength: Int,
+                                     normalizedTransitionFrequency: Float,
+                                     stopBandAttenuation: Float,
+                                     gain:Float=1.0)
+                    ->[Float] {
+        let beta = kaiser_beta(attenuation: stopBandAttenuation)
+        return sincKernel(filterLength:filterLength,
+                          normalizedTransitionFrequency:normalizedTransitionFrequency,
+                          highNotLowPass:false,
+                          windowFunction:kaiser(beta:beta),
+                          gain:gain)
+    }
+
     public static func kaiserHighPass(transitionFrequency:Float,
                                sampleFrequency:Float,
                                ripple:Float,
