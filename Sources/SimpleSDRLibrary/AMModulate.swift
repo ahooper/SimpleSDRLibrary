@@ -6,7 +6,7 @@
 //
 
 public class AMModulate:BufferedStage<RealSamples,ComplexSamples> {
-    let carrier: OscillatorNew<ComplexSamples>,
+    let carrier: Oscillator<ComplexSamples>,
         factor:Float,
         suppressedCarrier:Bool
 
@@ -14,7 +14,7 @@ public class AMModulate:BufferedStage<RealSamples,ComplexSamples> {
                                   factor:Float=1,
                                   carrierHz:Double,
                                   suppressedCarrier:Bool=false) where S.Output == Input {
-        self.carrier =  OscillatorNew<ComplexSamples>(signalHz: carrierHz,
+        self.carrier =  Oscillator<ComplexSamples>(signalHz: carrierHz,
                                                       sampleHz: source!.sampleFrequency())
         self.factor = factor
         self.suppressedCarrier = suppressedCarrier

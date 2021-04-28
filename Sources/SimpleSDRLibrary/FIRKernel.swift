@@ -475,10 +475,11 @@ public enum FIRKernel {
         precondition(M > 0, "FIRKernel polyphaseBank size must be > 0")
         let N = F.count
         precondition(N > 0, "FIRKernel polyphaseBank filter must not be empty")
-        precondition(M <= N, "FIRKernel polyphaseBank size must not exceed kernel size")
+        precondition(M <= N, "FIRKernel polyphaseBank size \(M) must not exceed kernel size \(N)")
         var F0 = F.map{$0*scale}
         let pad = (N + M-1) / M * M - N // pad to even multiple of M with zeros
         if pad > 0 {
+            print("FIRKernel polyphaseBank \(M) \(N) pad \(pad)")
             F0.append(contentsOf: repeatElement(Float.zero, count:pad))
         }
         let P = F0.count / M // length of sub-filters, truncating division

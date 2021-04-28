@@ -17,21 +17,12 @@ class OscillatorTests: XCTestCase {
     func frequencyTest(_ frequency:Float, _ Y:[DSPComplex], _ tol:Float) {
         let f = frequency/(2*Float.pi)
         
-        let osc = /*deprecated*/OscillatorComplex(signalHz:f, sampleHz:1, level:1.0)
-//        for i in 0..<osc.outputBuffer.count {//Y.count {
-//            print(Y[i], osc.outputBuffer[i % osc.outputBuffer.count])
-//        }
-        AssertEqual(osc.outputBuffer, Array(Y.prefix(osc.outputBuffer.count)), accuracy:tol)
-        
-        let o = /*deprecated*/Oscillator<ComplexSamples>(signalHz:f, sampleHz:1, level:1.0)
-        AssertEqual(osc.outputBuffer, o.outputBuffer.zip(), accuracy: Float.zero)
-        
-        let n = OscillatorNew<ComplexSamples>(signalHz:Double(f), sampleHz:1, level:1.0)
-        n.generate(UInt(Y.count))
+        let n = Oscillator<ComplexSamples>(signalHz:Double(f), sampleHz:1, level:1.0)
+        n.generate(Y.count)
         AssertEqual(n.produceBuffer, Y, accuracy:tol)
         
-        let r = OscillatorNew<RealSamples>(signalHz:Double(f), sampleHz:1, level:1.0)
-        r.generate(UInt(Y.count))
+        let r = Oscillator<RealSamples>(signalHz:Double(f), sampleHz:1, level:1.0)
+        r.generate(Y.count)
         AssertEqual(r.produceBuffer, Y.map{$0.real}, accuracy:tol)
         print(frequency, r.produceBuffer)
     }
@@ -1083,7 +1074,7 @@ class OscillatorTests: XCTestCase {
     }
 
     func phaseTest(_ theta:Float, _ cos:Float, _ sin:Float, _ tol:Float) {
-        let osc = OscillatorNew<ComplexSamples>(signalHz:0.5, sampleHz:1, level:1.0)
+        let osc = Oscillator<ComplexSamples>(signalHz:0.5, sampleHz:1, level:1.0)
         osc.setPhase(theta)
         osc.generate(1)
         AssertEqual(osc.produceBuffer[0], DSPComplex(cos,sin), accuracy: tol)
@@ -1167,8 +1158,8 @@ class OscillatorTests: XCTestCase {
         }
     }
     
-    func runPLLTest(_ phaseOffset:Float, _ freqOffset:Float, _ pllBandwidth:Float, _ N:UInt, _ tol:Float) {
-        let tx = OscillatorNew<ComplexSamples>(signalHz:0, sampleHz:1, level:1.0)
+    func runPLLTest(_ phaseOffset:Float, _ freqOffset:Float, _ pllBandwidth:Float, _ N:Int, _ tol:Float) {
+        let tx = Oscillator<ComplexSamples>(signalHz:0, sampleHz:1, level:1.0)
         let rx = PLL(source:tx, signalHz:0, errorEstimator:{ x,o in
             (x * o.conjugate()).argument()
         })
@@ -1195,7 +1186,7 @@ class OscillatorTests: XCTestCase {
 
     func testPLLphase() {
         let bw:Float = 0.1
-        let N:UInt = 256
+        let N:Int = 256
         let tol:Float = 1e-2
 
         // test various phase offsets
@@ -1212,7 +1203,7 @@ class OscillatorTests: XCTestCase {
 
     func testPLLfreq() {
         let bw:Float = 0.1
-        let N:UInt = 256
+        let N:Int = 256
         let tol:Float = 1e-2
 
         // test various frequency offsets
